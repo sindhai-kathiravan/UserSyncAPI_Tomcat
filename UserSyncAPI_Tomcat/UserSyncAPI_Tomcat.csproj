@@ -4,7 +4,11 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<OutputType>WinExe</OutputType>
-		
+		<SelfContained>false</SelfContained>
+  <PublishTrimmed>true</PublishTrimmed>
+  <PublishSingleFile>true</PublishSingleFile>
+  <PublishReadyToRun>false</PublishReadyToRun>
+  <InvariantGlobalization>true</InvariantGlobalization>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
@@ -14,7 +18,18 @@
 		<PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.10" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Folder Include="bin\Debug\net8.0\" />
 	  <Folder Include="DTOs\" />
 	  <Folder Include="NewFolder\" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Include="wwwroot\LogViewer.html">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Update="wwwroot\Logger.html">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
 	</ItemGroup>
 </Project>

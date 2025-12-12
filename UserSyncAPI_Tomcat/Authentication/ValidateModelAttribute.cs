@@ -442,5 +442,6 @@ namespace UserSyncAPI_Tomcat.Authentication
             Logger.Log("Validation failed.");
             Logger.Log($"Response: {prettyJson}");
         }
+
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
@@ -75,7 +76,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                         else
                         {
                             success = false;
-                            message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SYSTEM;
+                            message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SOURCE_SYSTEM;
                             error = Common.Constants.Errors.ERR_LOGIN_FAILED;
                         }
                     }
@@ -242,19 +243,23 @@ namespace UserSyncAPI_Tomcat.Controllers
         [Route("domain-login")]
         public IActionResult DomainLogin([FromBody] LoginRequest request)
         {
+            string? correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request);
             ApiResponse<object>? apiResponse = null;
-            string? message = null;
             string? error = null;
-            bool success = false;
+            Logger.Log($"{correlationId} > DomainLogin");
 
             bool adAvailable = IsADAvailable();
 
             if (adAvailable)
             {
+                Logger.Log($"{correlationId} > AD Is Available");
+
                 bool adSuccess = TryADAuthentication(request);
 
                 if (adSuccess)
                 {
+                    Logger.Log($"{correlationId} > AD authentication successfull");
+
                     apiResponse = new ApiResponse<object>
                     {
                         Success = true,
@@ -263,28 +268,32 @@ namespace UserSyncAPI_Tomcat.Controllers
                         Message = Common.Constants.Messages.USER_DOMAIN_AUTHENTICATION_SUCCESSFUL,
                         Data = null,
                         Error = error,
-                        CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                        CorrelationId = correlationId
                     };
                     return StatusCode(StatusCodes.Status200OK, apiResponse);
                 }
                 else
                 {
+                    Logger.Log($"{correlationId} > Credentials are invalid, AD authentication FAILURE");
+
                     // AD reachable but login failed → Fallback to DB
                     apiResponse = new ApiResponse<object>
                     {
                         Success = false,
                         StatusCode = (int)HttpStatusCode.OK,
                         Status = HttpStatusCode.OK.ToString(),
-                        Message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SYSTEM,
+                        Message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_DOMAIN,
                         Data = null,
                         Error = Common.Constants.Errors.ERR_LOGIN_FAILED,
-                        CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                        CorrelationId = correlationId
                     };
                     return StatusCode(StatusCodes.Status200OK, apiResponse);
                 }
             }
             else
             {
+                Logger.Log($"{correlationId} > AD / Domain unavalable, trying for DB authentication.");
+
                 // AD is DOWN → Direct DB login
                 return Login(request);
             }
@@ -409,46 +418,97 @@ namespace UserSyncAPI_Tomcat.Controllers
 
         private bool IsADAvailable()
         {
+            string? correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request);
+            Logger.Log($"{correlationId} > Inside IsADAvailable function");
+
             try
             {
                 string ldapServer = _ldapSettings.Server; // ex: "ldap://192.168.1.10:389"
+                Logger.Log($"{correlationId} > LDAB Server domain {ldapServer}");
 
                 using var connection = new LdapConnection(ldapServer);
                 connection.Timeout = new TimeSpan(0, 0, 3); // 3 seconds timeout
 
                 connection.Bind(); // simple ping bind
+                Logger.Log($"{correlationId} > IsADAvailable LDAB Connection bind successfull");
 
                 return true; // AD reachable
             }
-            catch
+            catch (Exception ex)
             {
+                string errorDetails = ExceptionHelper.BuildExceptionDetails(ex);
+                Logger.Log($"{correlationId} > IsADAvailable() FAILURE. \n\t {errorDetails}");
                 return false; // AD unavailable (network/DNS/server down)
             }
         }
 
+        //private bool TryADAuthentication(LoginRequest request)
+        //{
+        //    Logger.Log($"TryADAuthenticatione function");
+
+        //    try
+        //    {
+        //        string ldapServer = _ldapSettings.Server;
+
+        //        var credential = new NetworkCredential(request.Username, request.Password);
+
+        //        using var connection = new LdapConnection(ldapServer)
+        //        {
+        //            Credential = credential,
+        //            AuthType = AuthType.Basic
+        //        };
+        //        Logger.Log($"TryADAuthentication bind successfull");
+
+        //        connection.Bind(); // Will fail if wrong password
+
+        //        return true;
+        //    }
+        //    catch
+        //    {
+        //        Logger.Log($"TryADAuthentication failed");
+
+        //        return false; // Authentication failed
+        //    }
+        //}
+
         private bool TryADAuthentication(LoginRequest request)
         {
+            string? correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request);
+            Logger.Log($"{correlationId} > TryADAuthentication started");
+
             try
             {
-                string ldapServer = _ldapSettings.Server;
+                string ldapServer = _ldapSettings.Server;// "jssl.in";   // your domain controller DNS
+                Logger.Log($"{correlationId} > ldapServer {ldapServer}");
 
-                var credential = new NetworkCredential(request.Username, request.Password);
+                string userPrincipalName = $"{request.Username}@{ldapServer}";
+                Logger.Log($"{correlationId} > userPrincipalName {userPrincipalName}");
 
-                using var connection = new LdapConnection(ldapServer)
+                var credential = new NetworkCredential(userPrincipalName, request.Password);
+
+                using var connection = new LdapConnection(new LdapDirectoryIdentifier(ldapServer))
                 {
                     Credential = credential,
-                    AuthType = AuthType.Basic
+                    AuthType = AuthType.Negotiate   // secure authentication
                 };
 
-                connection.Bind(); // Will fail if wrong password
+                // Optional: Skip certificate verification (development only)
+            //    connection.SessionOptions.VerifyServerCertificate += (conn, cert) => true;
 
+                // If password is wrong, this throws an exception
+                connection.Bind();
+
+                Logger.Log($"{correlationId} > TryADAuthentication successful");
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                return false; // Authentication failed
+                string errorDetails = ExceptionHelper.BuildExceptionDetails(ex);
+                Logger.Log($"{correlationId} > TryADAuthentication() FAILURE. \n\t {errorDetails}");
+                return false; // TryADAuthentication unavailable (network/DNS/server down)
             }
         }
+
 
     }
 }

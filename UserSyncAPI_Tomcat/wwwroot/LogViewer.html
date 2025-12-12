@@ -1,0 +1,252 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Log Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+        }
+
+        /* JSON syntax colors */
+        .key {
+            color: brown;
+        }
+
+        .string {
+            color: green;
+        }
+
+        .number {
+            color: blue;
+        }
+
+        .boolean {
+            color: purple;
+        }
+
+        .null {
+            color: gray;
+        }
+
+        .bracket {
+            color: #444;
+        }
+
+        .not-json {
+            color: #000;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h2>Application Log Viewer</h2>
+    <hr>
+
+    <div id="status"></div>
+    <label><b>Select Date:</b></label>
+    <input type="date" id="logDate" />
+    <button onclick="loadLog()">Load Logs</button>
+    <table>
+        <thead>
+            <tr><th style="width:120px">Time</th><th>Message</th></tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+    </table>
+
+    <script>
+        (function () {
+            const LOG_PATH = "/Logs/Log_20251204.txt"; // update if needed
+
+            function setStatus(msg, isError) {
+                const s = document.getElementById("status");
+                s.innerHTML = `<div style="color:${isError ? 'red' : 'green'}">${msg}</div>`;
+            }
+
+            function syntaxHighlight(json) {
+                // escape html
+                json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                // wrap tokens
+                return json.replace(
+                    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+                    function (match) {
+                        let cls = 'number';
+                        if (/^"/.test(match)) {
+                            cls = /:$/.test(match) ? 'key' : 'string';
+                        } else if (/true|false/.test(match)) {
+                            cls = 'boolean';
+                        } else if (/null/.test(match)) {
+                            cls = 'null';
+                        }
+                        return `<span class="${cls}">${match}</span>`;
+                    }
+                );
+            }
+
+            // Try to find a JSON substring inside a message.
+            // Returns {isJson: bool, prettyHtml: string, raw: string}
+            function extractAndFormatJson(msg) {
+                // find the first '{' or '[' and the last matching '}' or ']'
+                const firstBrace = msg.indexOf('{');
+                const firstBracket = msg.indexOf('[');
+                let start = -1, end = -1, openChar, closeChar;
+
+                if (firstBrace >= 0 && (firstBracket === -1 || firstBrace < firstBracket)) {
+                    start = firstBrace; openChar = '{'; closeChar = '}';
+                } else if (firstBracket >= 0) {
+                    start = firstBracket; openChar = '['; closeChar = ']';
+                }
+
+                if (start === -1) {
+                    return { isJson: false, raw: msg };
+                }
+
+                // find the last closeChar
+                end = msg.lastIndexOf(closeChar);
+                if (end <= start) {
+                    return { isJson: false, raw: msg };
+                }
+
+                // extract JSON candidate and surrounding prefix
+                const prefix = msg.substring(0, start).trim();
+                const candidate = msg.substring(start, end + 1).trim();
+                const suffix = msg.substring(end + 1).trim();
+
+                try {
+                    const parsed = JSON.parse(candidate);
+                    const pretty = JSON.stringify(parsed, null, 2);
+                    const highlighted = syntaxHighlight(pretty);
+                    let combined = "";
+                    if (prefix) combined += `<div class="not-json">${escapeHtml(prefix)}</div>\n`;
+                    combined += `<pre class="bracket">${highlighted}</pre>`;
+                    if (suffix) combined += `\n<div class="not-json">${escapeHtml(suffix)}</div>`;
+                    return { isJson: true, prettyHtml: combined, raw: msg };
+                } catch (e) {
+                    // parsing failed — not valid JSON, fallback to raw
+                    return { isJson: false, raw: msg };
+                }
+            }
+
+            function escapeHtml(s) {
+                return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            // Build entries array: each entry {time, message}
+            function parseLogToEntries(text) {
+                const lines = text.split(/\r?\n/);
+                const timeRegex = /^\d{2}:\d{2}:\d{2} -/; // matches HH:MM:SS -
+                const entries = [];
+
+                let current = null;
+
+                lines.forEach(rawLine => {
+                    const line = rawLine.replace(/\t/g, '    ').replace(/\r/g, '');
+                    if (!line.trim()) return; // skip empty
+
+                    if (timeRegex.test(line)) {
+                        // new entry
+                        if (current) entries.push(current);
+                        const idx = line.indexOf(" - ");
+                        const time = idx >= 0 ? line.substring(0, idx) : "";
+                        const msg = idx >= 0 ? line.substring(idx + 3) : line;
+                        current = { time: time, message: msg };
+                    } else {
+                        // continuation of previous message
+                        if (!current) {
+                            // no current entry — treat as orphan line (put in unknown time)
+                            current = { time: "", message: line };
+                        } else {
+                            current.message += "\n" + line;
+                        }
+                    }
+                });
+
+                if (current) entries.push(current);
+                return entries;
+            }
+
+            function renderEntries(entries) {
+                const tbody = document.getElementById("logBody");
+                tbody.innerHTML = "";
+
+                entries.forEach(entry => {
+                    const tr = document.createElement("tr");
+                    const tdTime = document.createElement("td");
+                    tdTime.textContent = entry.time || "";
+                    const tdMsg = document.createElement("td");
+
+                    // Try to detect JSON inside the message and render colored JSON if possible
+                    const result = extractAndFormatJson(entry.message);
+                    if (result.isJson) {
+                        tdMsg.innerHTML = result.prettyHtml;
+                    } else {
+                        // non-JSON: show as pre (preserve new lines)
+                        tdMsg.innerHTML = `<pre>${escapeHtml(entry.message)}</pre>`;
+                    }
+
+                    tr.appendChild(tdTime);
+                    tr.appendChild(tdMsg);
+                    tbody.appendChild(tr);
+                });
+
+                setStatus(`Loaded ${entries.length} log entries.`, false);
+            }
+
+            // Start
+            setStatus("Loading log file...", false);
+            fetch(LOG_PATH, { cache: "no-store" })
+                .then(response => {
+                    if (!response.ok) {
+                        console.error("Failed to fetch log file:", response.status, response.statusText);
+                        setStatus(`Unable to load log file: ${response.status} ${response.statusText}`, true);
+                        return "";
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    if (!text) return;
+                    try {
+                        const entries = parseLogToEntries(text);
+                        console.info("Parsed entries:", entries.length);
+                        renderEntries(entries);
+                    } catch (err) {
+                        console.error("Error parsing/rendering log:", err);
+                        setStatus("An error occurred while parsing the log. Check browser console.", true);
+                    }
+                })
+                .catch(err => {
+                    console.error("Fetch error:", err);
+                    setStatus("Fetch error. See console for details.", true);
+                });
+        })();
+    </script>
+</body>
+</html>

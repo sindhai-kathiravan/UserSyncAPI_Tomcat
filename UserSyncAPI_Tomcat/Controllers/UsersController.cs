@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Net;
 using System.Transactions;
 using UserSyncAPI_Tomcat.Authentication;
+using UserSyncAPI_Tomcat.Common;
 using UserSyncAPI_Tomcat.Helpers;
 using UserSyncAPI_Tomcat.Models;
 using UserSyncAPI_Tomcat.Security;
@@ -12,12 +13,12 @@ namespace UserSyncAPI_Tomcat.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(AuthenticationSchemes = "BasicAuthentication")]
+    [Authorize(AuthenticationSchemes = Constants.AuthenticationSchemes.BasicAuthentication)]
     [ServiceFilter(typeof(ValidateModelAttribute))]
     public class UsersController : ControllerBase
     {
         [HttpGet("getall")]
-        public IActionResult GetAllUser()
+        public IActionResult GetAll()
         {
             ApiResponse<object> apiResponse;
             try
@@ -157,7 +158,7 @@ namespace UserSyncAPI_Tomcat.Controllers
         }
 
         [HttpGet("get")]
-        public IActionResult GetUser(int id)
+        public IActionResult Get(int id)
         {
             User? userObj = null;
             ApiResponse<object>? apiResponse = null;
@@ -692,7 +693,7 @@ namespace UserSyncAPI_Tomcat.Controllers
 
         [HttpDelete]
         [Route("delete")]
-        public IActionResult DeleteUser([FromBody] DeleteUserRequest request)
+        public IActionResult Delete([FromBody] DeleteUserRequest request)
         {
             ApiResponse<object> apiResponse;
             try

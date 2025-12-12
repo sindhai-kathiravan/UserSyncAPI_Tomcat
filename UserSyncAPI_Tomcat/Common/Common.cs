@@ -29,19 +29,24 @@
             public const string USER_DELETED_SUCCESSFULLY = "User deleted successfully.";
             public const string USER_DATABASE_AUTHENTICATION_SUCCESSFUL = "User Database Authentication successful.";
             public const string USER_DOMAIN_AUTHENTICATION_SUCCESSFUL = "User Domain Authentication successful.";
-            public const string INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SYSTEM = "Invalid username or password for this System.";
+            public const string INVALID_USERNAME_OR_PASSWORD_FOR_THIS_DOMAIN = "Invalid username or password for this Domain.";
+            public const string INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SOURCE_SYSTEM = "Invalid username or password for this Source System";
             public const string USERNAME_ALREADY_EXIST = "Username already exist.";
             public const string MAX_IDS_ARE_NOT_THE_SAME_ACROSS_DATABASES = "Max Ids are not the same across databases.";
+        }
+        public static class AuthenticationSchemes { 
+            public const string BasicAuthentication = "BasicAuthentication";
 
         }
         public static class ActionNames
         {
-            public const string CreateUser = "CreateUser";
-            public const string GetUser = "GetUser";
-            public const string GetAllUser = "GetAllUser";
-            public const string UpdateUser = "UpdateUser";
-            public const string DeleteUser = "DeleteUser";
+            public const string CreateUser = "Create";
+            public const string GetUser = "Get";
+            public const string GetAllUser = "GetAll";
+            public const string UpdateUser = "Update";
+            public const string DeleteUser = "Delete";
             public const string Login = "Login";
+            public const string DomainLogin = "DomainLogin";
         }
         public static class Methods
         {

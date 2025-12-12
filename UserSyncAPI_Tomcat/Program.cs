@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using UserSyncAPI_Tomcat.Authentication;
+using UserSyncAPI_Tomcat.Filter;
 using UserSyncAPI_Tomcat.Helpers;
+using UserSyncAPI_Tomcat.Middleware;
 using UserSyncAPI_Tomcat.Models; // update this with your actual namespace
 
 
@@ -44,6 +47,12 @@ namespace UserSyncAPI_Tomcat
             DbConnectionFactory.Init(builder.Configuration);
 
             builder.Services.AddScoped<ValidateModelAttribute>();
+            builder.Services.AddControllers(options =>
+            {
+                options.Filters.Add<ResponseLoggingFilter>();
+            });
+
+
 
             //logging settings
             // builder.Services.Configure<LoggingSettings>(builder.Configuration.GetSection("LoggingSettings"));
@@ -56,6 +65,16 @@ namespace UserSyncAPI_Tomcat
                     "BasicAuthentication", null);
 
             builder.Services.AddAuthorization();
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy
+                        .AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
 
             var app = builder.Build();
 
@@ -65,10 +84,19 @@ namespace UserSyncAPI_Tomcat
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            app.UseStaticFiles(); // <-- IMPORTANT
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(
+        Path.Combine(AppContext.BaseDirectory, "Logs")),
+                RequestPath = "/Logs"
+            });
 
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseMiddleware<RequestResponseLoggingMiddleware>();
+            app.UseCors("AllowAll");
 
             app.MapControllers();
 
