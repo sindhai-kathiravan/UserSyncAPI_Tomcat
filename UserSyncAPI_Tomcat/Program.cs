@@ -87,8 +87,7 @@ namespace UserSyncAPI_Tomcat
             app.UseStaticFiles(); // <-- IMPORTANT
             app.UseStaticFiles(new StaticFileOptions
             {
-                FileProvider = new PhysicalFileProvider(
-        Path.Combine(AppContext.BaseDirectory, "Logs")),
+                FileProvider = new PhysicalFileProvider(Path.Combine(AppContext.BaseDirectory, "Logs")),
                 RequestPath = "/Logs"
             });
 
