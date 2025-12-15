@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using System.Data;
 using System.Net;
 using System.Transactions;
 using UserSyncAPI_Tomcat.Authentication;
@@ -336,7 +337,7 @@ namespace UserSyncAPI_Tomcat.Controllers
 
                     foreach (var cs in allConnectionStrings)
                     {
-                     
+
                         using (SqlConnection conn = new SqlConnection(cs.Value))
                         {
                             conn.Open();
@@ -505,161 +506,230 @@ namespace UserSyncAPI_Tomcat.Controllers
                         .ToDictionary(x => x.Key, x => x.Value);
                     foreach (var cs in allConnectionStrings)
                     {
-                        using (SqlConnection conn = new SqlConnection(cs.Value))
+                        using (var conn = new SqlConnection(cs.Value))
                         {
                             conn.Open();
-                            string sql = @"
-                                        UPDATE Users SET
-                                            user_name=@UserName,
-                                            user_loginname=@UserLoginName,
-                                            user_loggedonat=@UserLoggedOnAt,
-                                            user_fullname=@UserFullName,
-                                            user_email=@UserEmail,
-                                            user_initials=@UserInitials,
-                                            user_password=@UserPassword,
-                                            user_department=@UserDepartment,
-                                            --user_loggedin=@UserLoggedIn,
-                                            user_inmodule=@UserInModule,
-                                            g2version=@G2Version,
-                                            --lastlogin=@LastLogin,
-                                            os=@OS,
-                                            clr=@CLR,
-                                            user_menus=@UserMenus,
-                                            logincount=@LoginCount,
-                                            libraries_readonly=@LibrariesReadonly,
-                                            group_company=@GroupCompany,
-                                            screen1_res=@Screen1Res,
-                                            screen2_res=@Screen2Res,
-                                            screen3_res=@Screen3Res,
-                                            screen4_res=@Screen4Res,
-                                            po_auth_id=@PoAuthId,
-                                            po_auth_all=@PoAuthAll,
-                                            order_alerts=@OrderAlerts,
-                                            po_auth_temp_user_id=@PoAuthTempUserId,
-                                            maxordervalue=@MaxOrderValue,
-                                            outofoffice=@OutOfOffice,
-                                            default_order_department=@DefaultOrderDepartment,
-                                            porole_id=@PoRoleId,
-                                            --deleted=@Deleted,
-                                            alias_username_1=@AliasUserName1,
-                                            invoicebarcodeprinter=@InvoiceBarcodePrinter,
-                                            smtpserver=@SmtpServer,
-                                            factory_id=@FactoryId,
-                                            piecemonitoringaccesslevel=@PieceMonitoringAccessLevel,
-                                            exclassedit=@ExClassEdit,
-                                            timesheetsaccesslevel=@TimesheetsAccessLevel,
-                                            initial_windows=@InitialWindows,
-                                            fabscheduleaccesslevel=@FabScheduleAccessLevel,
-                                            fablinescheduleaccesslevel=@FabLineScheduleAccessLevel,
-                                            paintlinescheduleaccesslevel=@PaintLineScheduleAccessLevel,
-                                            contractsaccesslevel=@ContractsAccessLevel,
-                                            g2updaterversion=@G2UpdaterVersion,
-                                            updatelocation_id=@UpdateLocationId,
-                                            allocationadmin=@AllocationAdmin,
-                                            user_password_last_changed=@UserPasswordLastChanged,
-                                            --date_created=@DateCreated,
-                                            --createdbyuser_id=@CreatedByUserId,
-                                            date_modified=GETDATE(),
-                                            modifiedbyuser_id=@ModifiedByUserId,
-                                            loggedinoncomputer=@LoggedInOnComputer,
-                                            yloc=@YLoc,
-                                            ylocdsc=@YLocDsc,
-                                            locked=@Locked,
-                                            fattempt=@FAttempt,
-                                            remarks=@Remarks,
-                                            releasedt=@ReleaseDt,
-                                            releaseby=@ReleaseBy,
-                                            inactive=@Inactive,
-                                            inactiveremarks=@InactiveRemarks,
-                                            inactivereleasedt=@InactiveReleaseDt,
-                                            inactivereleaseby=@InactiveReleaseBy,
-                                            password_attempts=@PasswordAttempts--,
-                                            --password_updated_flag=@PasswordUpdatedFlag,
-                                            --unlock_date=@UnlockDate
-                                        WHERE user_id=@UserId";
-                            using (SqlCommand cmd = new SqlCommand(sql, conn))
-                            {
-                                // Parameters (mapping request properties)
-                                cmd.Parameters.AddWithValue("@UserId", request.UserId);
-                                cmd.Parameters.AddWithValue("@UserName", request.UserName);
-                                cmd.Parameters.AddWithValue("@UserLoginName", request.UserLoginName);
-                                cmd.Parameters.AddWithValue("@UserLoggedOnAt", request.UserLoggedOnAt);
-                                cmd.Parameters.AddWithValue("@UserFullName", request.UserFullName);
-                                cmd.Parameters.AddWithValue("@UserEmail", request.UserEmail);
-                                cmd.Parameters.AddWithValue("@UserInitials", request.UserInitials);
-                                cmd.Parameters.AddWithValue("@UserPassword", SecurityExtensions.Encrypt(request.UserPassword));
-                                cmd.Parameters.AddWithValue("@UserDepartment", request.UserDepartment);
-                                cmd.Parameters.AddWithValue("@UserLoggedIn", request.UserLoggedIn);
-                                cmd.Parameters.AddWithValue("@UserInModule", request.UserInModule);
-                                cmd.Parameters.AddWithValue("@G2Version", (object)request.G2Version ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@LastLogin", (object)request.LastLogin ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@OS", request.OS);
-                                cmd.Parameters.AddWithValue("@CLR", request.CLR);
-                                cmd.Parameters.AddWithValue("@UserMenus", request.UserMenus);
-                                cmd.Parameters.AddWithValue("@LoginCount", request.LoginCount);
-                                cmd.Parameters.AddWithValue("@LibrariesReadonly", request.LibrariesReadOnly);
-                                cmd.Parameters.AddWithValue("@GroupCompany", request.GroupCompany);
-                                cmd.Parameters.AddWithValue("@Screen1Res", request.Screen1Res);
-                                cmd.Parameters.AddWithValue("@Screen2Res", request.Screen2Res);
-                                cmd.Parameters.AddWithValue("@Screen3Res", request.Screen3Res);
-                                cmd.Parameters.AddWithValue("@Screen4Res", request.Screen4Res);
-                                cmd.Parameters.AddWithValue("@PoAuthId", request.POAuthId);
-                                cmd.Parameters.AddWithValue("@PoAuthAll", request.POAuthAll);
-                                cmd.Parameters.AddWithValue("@OrderAlerts", request.OrderAlerts);
-                                cmd.Parameters.AddWithValue("@PoAuthTempUserId", request.POAuthTempUserId);
-                                cmd.Parameters.AddWithValue("@MaxOrderValue", request.MaxOrderValue);
-                                cmd.Parameters.AddWithValue("@OutOfOffice", request.OutOfOffice);
-                                cmd.Parameters.AddWithValue("@DefaultOrderDepartment", request.DefaultOrderDepartment);
-                                cmd.Parameters.AddWithValue("@PoRoleId", request.PORoleId);
-                                cmd.Parameters.AddWithValue("@Deleted", request.Deleted);
-                                cmd.Parameters.AddWithValue("@AliasUserName1", (object)request.AliasUserName1 ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@InvoiceBarcodePrinter", request.InvoiceBarcodePrinter);
-                                cmd.Parameters.AddWithValue("@SmtpServer", request.SmtpServer);
-                                cmd.Parameters.AddWithValue("@FactoryId", request.FactoryId);
-                                cmd.Parameters.AddWithValue("@PieceMonitoringAccessLevel", request.PieceMonitoringAccessLevel);
-                                cmd.Parameters.AddWithValue("@ExClassEdit", request.ExClassEdit);
-                                cmd.Parameters.AddWithValue("@TimesheetsAccessLevel", request.TimesheetsAccessLevel);
-                                cmd.Parameters.AddWithValue("@InitialWindows", request.InitialWindows);
-                                cmd.Parameters.AddWithValue("@FabScheduleAccessLevel", request.FabScheduleAccessLevel);
-                                cmd.Parameters.AddWithValue("@FabLineScheduleAccessLevel", request.FabLineScheduleAccessLevel);
-                                cmd.Parameters.AddWithValue("@PaintLineScheduleAccessLevel", request.PaintLineScheduleAccessLevel);
-                                cmd.Parameters.AddWithValue("@ContractsAccessLevel", request.ContractsAccessLevel);
-                                cmd.Parameters.AddWithValue("@G2UpdaterVersion", (object)request.G2UpdaterVersion ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@UpdateLocationId", request.UpdateLocationId);
-                                cmd.Parameters.AddWithValue("@AllocationAdmin", request.AllocationAdmin);
-                                cmd.Parameters.AddWithValue("@UserPasswordLastChanged", (object)request.UserPasswordLastChanged ?? DBNull.Value);
-                                //cmd.Parameters.AddWithValue("@DateCreated", (object)request.DateCreated ?? DBNull.Value);
-                                //cmd.Parameters.AddWithValue("@CreatedByUserId", (object)request.CreatedByUserId ?? DBNull.Value);
-                                //cmd.Parameters.AddWithValue("@DateModified", (object)request.DateModified ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@ModifiedByUserId", (object)request.ModifiedByUserId ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@LoggedInOnComputer", request.LoggedInOnComputer);
-                                cmd.Parameters.AddWithValue("@YLoc", (object)request.YLoc ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@YLocDsc", (object)request.YLocDsc ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@Locked", (object)request.Locked ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@FAttempt", (object)request.FAttempt ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@Remarks", (object)request.Remarks ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@ReleaseDt", (object)request.ReleaseDt ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@ReleaseBy", (object)request.ReleaseBy ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@Inactive", (object)request.Inactive ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@InactiveRemarks", (object)request.InactiveRemarks ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@InactiveReleaseDt", (object)request.InactiveReleaseDt ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@InactiveReleaseBy", (object)request.InactiveReleaseBy ?? DBNull.Value);
-                                cmd.Parameters.AddWithValue("@PasswordAttempts", (object)request.PasswordAttempts ?? DBNull.Value);
-                                //cmd.Parameters.AddWithValue("@PasswordUpdatedFlag", (object)request.PasswordUpdatedFlag ?? DBNull.Value);
-                                //cmd.Parameters.AddWithValue("@UnlockDate", (object)request.UnlockDate ?? DBNull.Value);
-                                int rowsAffected = cmd.ExecuteNonQuery();
 
+                            var setClauses = new List<string>();
+                            using var cmd = conn.CreateCommand();
+
+                            void Add<T>(string column, string param, SqlDbType type, T value)
+                            {
+                                setClauses.Add($"{column} = @{param}");
+                                cmd.Parameters.Add($"@{param}", type).Value = value!;
+                            }
+
+                            // -------- BASIC USER INFO --------
+                            if (request.UserName != null)
+                                Add("user_name", "UserName", SqlDbType.VarChar, request.UserName);
+
+                            if (request.UserLoginName != null)
+                                Add("user_loginname", "UserLoginName", SqlDbType.VarChar, request.UserLoginName);
+
+                            if (request.UserLoggedOnAt != null)
+                                Add("user_loggedonat", "UserLoggedOnAt", SqlDbType.DateTime, request.UserLoggedOnAt);
+
+                            if (request.UserFullName != null)
+                                Add("user_fullname", "UserFullName", SqlDbType.VarChar, request.UserFullName);
+
+                            if (request.UserEmail != null)
+                                Add("user_email", "UserEmail", SqlDbType.VarChar, request.UserEmail);
+
+                            if (request.UserInitials != null)
+                                Add("user_initials", "UserInitials", SqlDbType.VarChar, request.UserInitials);
+
+
+                            if (request.UserDepartment != null)
+                                Add("user_department", "UserDepartment", SqlDbType.VarChar, request.UserDepartment);
+
+                            if (request.UserInModule != null)
+                                Add("user_inmodule", "UserInModule", SqlDbType.VarChar, request.UserInModule);
+
+                            // -------- SYSTEM INFO --------
+                            if (request.G2Version != null)
+                                Add("g2version", "G2Version", SqlDbType.VarChar, request.G2Version);
+
+                            if (request.OS != null)
+                                Add("os", "OS", SqlDbType.VarChar, request.OS);
+
+                            if (request.CLR != null)
+                                Add("clr", "CLR", SqlDbType.VarChar, request.CLR);
+
+                            if (request.UserMenus != null)
+                                Add("user_menus", "UserMenus", SqlDbType.VarChar, request.UserMenus);
+
+                            if (request.LoginCount.HasValue)
+                                Add("logincount", "LoginCount", SqlDbType.Int, request.LoginCount.Value);
+
+                            if (request.LibrariesReadOnly.HasValue)
+                                Add("libraries_readonly", "LibrariesReadonly", SqlDbType.Bit, request.LibrariesReadOnly.Value);
+
+                            if (request.GroupCompany != null)
+                                Add("group_company", "GroupCompany", SqlDbType.VarChar, request.GroupCompany);
+
+                            // -------- SCREEN / UI --------
+                            if (request.Screen1Res != null)
+                                Add("screen1_res", "Screen1Res", SqlDbType.VarChar, request.Screen1Res);
+
+                            if (request.Screen2Res != null)
+                                Add("screen2_res", "Screen2Res", SqlDbType.VarChar, request.Screen2Res);
+
+                            if (request.Screen3Res != null)
+                                Add("screen3_res", "Screen3Res", SqlDbType.VarChar, request.Screen3Res);
+
+                            if (request.Screen4Res != null)
+                                Add("screen4_res", "Screen4Res", SqlDbType.VarChar, request.Screen4Res);
+
+                            // -------- PURCHASE / ORDER --------
+                            if (request.POAuthId.HasValue)
+                                Add("po_auth_id", "PoAuthId", SqlDbType.Int, request.POAuthId.Value);
+
+                            if (request.POAuthAll.HasValue)
+                                Add("po_auth_all", "PoAuthAll", SqlDbType.Bit, request.POAuthAll.Value);
+
+                            if (request.OrderAlerts.HasValue)
+                                Add("order_alerts", "OrderAlerts", SqlDbType.Bit, request.OrderAlerts.Value);
+
+                            if (request.POAuthTempUserId.HasValue)
+                                Add("po_auth_temp_user_id", "PoAuthTempUserId", SqlDbType.Int, request.POAuthTempUserId.Value);
+
+                            if (request.MaxOrderValue.HasValue)
+                                Add("maxordervalue", "MaxOrderValue", SqlDbType.Decimal, request.MaxOrderValue.Value);
+
+                            if (request.OutOfOffice.HasValue)
+                                Add("outofoffice", "OutOfOffice", SqlDbType.Bit, request.OutOfOffice.Value);
+
+                            if (request.DefaultOrderDepartment != null)
+                                Add("default_order_department", "DefaultOrderDepartment", SqlDbType.VarChar, request.DefaultOrderDepartment);
+
+                            if (request.PORoleId.HasValue)
+                                Add("porole_id", "PoRoleId", SqlDbType.Int, request.PORoleId.Value);
+
+                            // -------- HARDWARE / SYSTEM --------
+                            if (request.AliasUserName1 != null)
+                                Add("alias_username_1", "AliasUserName1", SqlDbType.VarChar, request.AliasUserName1);
+
+                            if (request.InvoiceBarcodePrinter != null)
+                                Add("invoicebarcodeprinter", "InvoiceBarcodePrinter", SqlDbType.VarChar, request.InvoiceBarcodePrinter);
+
+                            if (request.SmtpServer != null)
+                                Add("smtpserver", "SmtpServer", SqlDbType.VarChar, request.SmtpServer);
+
+                            if (request.FactoryId.HasValue)
+                                Add("factory_id", "FactoryId", SqlDbType.Int, request.FactoryId.Value);
+
+                            // -------- ACCESS LEVELS --------
+                            if (request.PieceMonitoringAccessLevel.HasValue)
+                                Add("piecemonitoringaccesslevel", "PieceMonitoringAccessLevel", SqlDbType.Int, request.PieceMonitoringAccessLevel.Value);
+
+                            if (request.ExClassEdit.HasValue)
+                                Add("exclassedit", "ExClassEdit", SqlDbType.Bit, request.ExClassEdit.Value);
+
+                            if (request.TimesheetsAccessLevel.HasValue)
+                                Add("timesheetsaccesslevel", "TimesheetsAccessLevel", SqlDbType.Int, request.TimesheetsAccessLevel.Value);
+
+                            if (request.InitialWindows != null)
+                                Add("initial_windows", "InitialWindows", SqlDbType.VarChar, request.InitialWindows);
+
+                            if (request.FabScheduleAccessLevel.HasValue)
+                                Add("fabscheduleaccesslevel", "FabScheduleAccessLevel", SqlDbType.Int, request.FabScheduleAccessLevel.Value);
+
+                            if (request.FabLineScheduleAccessLevel.HasValue)
+                                Add("fablinescheduleaccesslevel", "FabLineScheduleAccessLevel", SqlDbType.Int, request.FabLineScheduleAccessLevel.Value);
+
+                            if (request.PaintLineScheduleAccessLevel.HasValue)
+                                Add("paintlinescheduleaccesslevel", "PaintLineScheduleAccessLevel", SqlDbType.Int, request.PaintLineScheduleAccessLevel.Value);
+
+                            if (request.ContractsAccessLevel.HasValue)
+                                Add("contractsaccesslevel", "ContractsAccessLevel", SqlDbType.Int, request.ContractsAccessLevel.Value);
+
+                            // -------- SECURITY / STATUS --------
+                            if (request.G2UpdaterVersion != null)
+                                Add("g2updaterversion", "G2UpdaterVersion", SqlDbType.VarChar, request.G2UpdaterVersion);
+
+                            if (request.UpdateLocationId.HasValue)
+                                Add("updatelocation_id", "UpdateLocationId", SqlDbType.Int, request.UpdateLocationId.Value);
+
+                            if (request.AllocationAdmin.HasValue)
+                                Add("allocationadmin", "AllocationAdmin", SqlDbType.Bit, request.AllocationAdmin.Value);
+
+                            if (request.UserPasswordLastChanged.HasValue)
+                                Add("user_password_last_changed", "UserPasswordLastChanged", SqlDbType.DateTime, request.UserPasswordLastChanged.Value);
+
+                            if (request.LoggedInOnComputer != null)
+                                Add("loggedinoncomputer", "LoggedInOnComputer", SqlDbType.VarChar, request.LoggedInOnComputer);
+
+                            if (request.YLoc != null)
+                                Add("yloc", "YLoc", SqlDbType.VarChar, request.YLoc);
+
+                            if (request.YLocDsc != null)
+                                Add("ylocdsc", "YLocDsc", SqlDbType.VarChar, request.YLocDsc);
+
+                            if (request.Locked.HasValue)
+                                Add("locked", "Locked", SqlDbType.Bit, request.Locked.Value);
+
+                            if (request.FAttempt.HasValue)
+                                Add("fattempt", "FAttempt", SqlDbType.Int, request.FAttempt.Value);
+
+                            if (request.Remarks != null)
+                                Add("remarks", "Remarks", SqlDbType.VarChar, request.Remarks);
+
+                            if (request.ReleaseDt.HasValue)
+                                Add("releasedt", "ReleaseDt", SqlDbType.DateTime, request.ReleaseDt.Value);
+
+                            if (request.ReleaseBy!=null)
+                                Add("releaseby", "ReleaseBy", SqlDbType.Int, request.ReleaseBy);
+
+                            if (request.Inactive.HasValue)
+                                Add("inactive", "Inactive", SqlDbType.Bit, request.Inactive.Value);
+
+                            if (request.InactiveRemarks != null)
+                                Add("inactiveremarks", "InactiveRemarks", SqlDbType.VarChar, request.InactiveRemarks);
+
+                            if (request.InactiveReleaseDt.HasValue)
+                                Add("inactivereleasedt", "InactiveReleaseDt", SqlDbType.DateTime, request.InactiveReleaseDt.Value);
+
+                            if (request.InactiveReleaseBy!= null)
+                                Add("inactivereleaseby", "InactiveReleaseBy", SqlDbType.Int, request.InactiveReleaseBy);
+
+                            if (request.PasswordAttempts!= null)
+                                Add("password_attempts", "PasswordAttempts", SqlDbType.Int, request.PasswordAttempts);
+
+                            // -------- AUDIT (ALWAYS UPDATED) --------
+                            setClauses.Add("date_modified = GETDATE()");
+                            setClauses.Add("modifiedbyuser_id = @ModifiedByUserId");
+                            cmd.Parameters.Add("@ModifiedByUserId", SqlDbType.Int).Value = request.ModifiedByUserId;
+
+                            if (!setClauses.Any())
+                                throw new InvalidOperationException("No fields provided for update.");
+
+                            cmd.CommandText = $@"
+        UPDATE Users
+        SET {string.Join(", ", setClauses)}
+        WHERE user_id = @UserId";
+
+                            cmd.Parameters.Add("@UserId", SqlDbType.Int).Value = request.UserId;
+
+                            cmd.ExecuteNonQuery();
+
+                            // -------- FACTORY MAPPING --------
+                            if (request.TargetFactories != null)
+                            {
                                 DeleteUserFactoryMapping(request.UserId, conn);
 
-                                foreach (string factoryCode in request.TargetFactories)
+                                foreach (var factoryCode in request.TargetFactories)
                                 {
-                                    InsertUserFactoryMapping(request.UserId, factoryCode, request.ModifiedByUserId, conn);
+                                    InsertUserFactoryMapping(
+                                        request.UserId,
+                                        factoryCode,
+                                        request.ModifiedByUserId,
+                                        conn);
                                 }
-
                             }
                         }
+
                     }
-                //    scope.Complete();
+                    //    scope.Complete();
                 }
                 apiResponse = new ApiResponse<object>
                 {
