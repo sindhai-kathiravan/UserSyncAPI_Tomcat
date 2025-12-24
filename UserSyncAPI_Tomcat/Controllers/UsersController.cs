@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Net;
-using System.Transactions;
 using UserSyncAPI_Tomcat.Authentication;
 using UserSyncAPI_Tomcat.Common;
 using UserSyncAPI_Tomcat.Helpers;
@@ -21,7 +20,7 @@ namespace UserSyncAPI_Tomcat.Controllers
         [HttpGet("getall")]
         public IActionResult GetAll()
         {
-            ApiResponse<object> apiResponse;
+            ApiResponse<UserList> apiResponse;
             try
             {
                 List<User> users = new List<User>();
@@ -128,13 +127,13 @@ namespace UserSyncAPI_Tomcat.Controllers
                 }
                 string message = users.Count > 0 ? $"Fetched {users.Count} users successfully." : "No users found.";
 
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<UserList>
                 {
                     Success = true,
                     StatusCode = (int)HttpStatusCode.OK,
                     Status = HttpStatusCode.OK.ToString(),
                     Message = message,
-                    Data = new { UsersCount = users.Count, Users = users },
+                    Data = new UserList { UsersCount = users.Count, Users = users },
                     Error = null,
                     CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
                 };
@@ -144,13 +143,13 @@ namespace UserSyncAPI_Tomcat.Controllers
             {
                 Logger.Log($"Error in GetAllUser: {ex.Message}");
                 Logger.Log($"StackTrace in GetAllUser: {ex.StackTrace?.ToString()}");
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<UserList>
                 {
                     Success = false,
                     StatusCode = (int)HttpStatusCode.InternalServerError,
                     Status = HttpStatusCode.InternalServerError.ToString(),
                     Message = Common.Constants.Messages.AN_UNEXPECTED_ERROR_OCCURRED,
-                    Data = null,
+                    Data = new UserList { UsersCount = 0, Users = null },
                     Error = Common.Constants.Errors.ERR_INTERNAL_SERVER,
                     CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
                 };
@@ -162,11 +161,10 @@ namespace UserSyncAPI_Tomcat.Controllers
         public IActionResult Get(int id)
         {
             User? userObj = null;
-            ApiResponse<object>? apiResponse = null;
+            ApiResponse<User>? apiResponse = null;
             string? message = null;
             string? error = null;
             bool success = false;
-            object? data = null;
             try
             {
                 using (SqlConnection conn = DbConnectionFactory.GetDefaultConnection())
@@ -271,25 +269,23 @@ namespace UserSyncAPI_Tomcat.Controllers
                                 success = true;
                                 message = Common.Constants.Messages.USER_RETRIEVED_SUCCESSFULLY;
                                 error = null;
-                                data = new { User = userObj };
                             }
                             else
                             {
                                 success = false;
                                 message = $"User with Id {id} was not found.";
                                 error = Common.Constants.Errors.ERR_NOT_FOUND;
-                                data = null;
                             }
                         }
                     }
                 }
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<User>
                 {
                     Success = success,
                     StatusCode = (int)HttpStatusCode.OK,
                     Status = HttpStatusCode.OK.ToString(),
                     Message = message,
-                    Data = data,
+                    Data = userObj,
                     Error = error,
                     CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
                 };
@@ -299,7 +295,7 @@ namespace UserSyncAPI_Tomcat.Controllers
             {
                 Logger.Log($"Error in GetUser: {ex.Message}");
                 Logger.Log($"StackTrace in GetUser: {ex.StackTrace?.ToString()}");
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<User>
                 {
                     Success = false,
                     StatusCode = (int)HttpStatusCode.InternalServerError,
@@ -316,8 +312,8 @@ namespace UserSyncAPI_Tomcat.Controllers
         [HttpPost("create")]
         public IActionResult Create([FromBody] CreateUserRequest request)
         {
-            ApiResponse<object>? apiResponse = null;
-            List<object> newUser = new List<object>();
+            ApiResponse<List<NewUser>>? apiResponse = null;
+            List<NewUser> newUser = new List<NewUser>();
             try
             {
                 int newId = 0;
@@ -446,7 +442,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                                 //cmd.Parameters.AddWithValue("@PasswordUpdatedFlag", (object)request.PasswordUpdatedFlag ?? DBNull.Value);
                                 //cmd.Parameters.AddWithValue("@UnlockDate", (object)request.UnlockDate ?? DBNull.Value);
                                 newId = Convert.ToInt32(cmd.ExecuteScalar());
-                                newUser.Add(new { Database = cs.Key, NewUserId = newId });
+                                newUser.Add(new NewUser { Database = cs.Key, NewUserId = newId });
                                 foreach (string factoryCode in request.TargetFactories)
                                 {
                                     InsertUserFactoryMapping(newId, factoryCode, request.CreatedByUserId, conn);
@@ -456,7 +452,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                     }
                     //scope.Complete();
                 }
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<List<NewUser>>
                 {
                     Success = true,
                     StatusCode = (int)HttpStatusCode.OK,
@@ -472,7 +468,7 @@ namespace UserSyncAPI_Tomcat.Controllers
             {
                 Logger.Log($"Error in CreateUser: {ex.Message}");
                 Logger.Log($"StackTrace in CreateUser: {ex.StackTrace?.ToString()}");
-                apiResponse = new ApiResponse<object>
+                apiResponse = new ApiResponse<List<NewUser>>
                 {
                     Success = false,
                     StatusCode = (int)HttpStatusCode.InternalServerError,
@@ -737,7 +733,6 @@ namespace UserSyncAPI_Tomcat.Controllers
                     StatusCode = (int)HttpStatusCode.OK,
                     Status = HttpStatusCode.OK.ToString(),
                     Message = Common.Constants.Messages.USER_UPDATED_SUCCESSFULLY,
-                    Data = null,
                     Error = null,
                     CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
                 };
@@ -859,5 +854,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                 cmd.ExecuteNonQuery();
             }
         }
+
+       
     }
 }

@@ -10,6 +10,7 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
+		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="9.0.10" />
 		<PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.10" />
 	</ItemGroup>
 	<ItemGroup>

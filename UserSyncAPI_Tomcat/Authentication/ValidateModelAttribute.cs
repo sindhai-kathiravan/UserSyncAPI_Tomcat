@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Data.SqlClient;
-
+using System.DirectoryServices.AccountManagement;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
@@ -30,13 +30,13 @@ namespace UserSyncAPI_Tomcat.Authentication
             {
                 if (model == null)
                 {
-                    ApiResponse<object> response = new ApiResponse<object>
+                    ApiResponse<EmptyData> response = new ApiResponse<EmptyData>
                     {
                         StatusCode = (int)HttpStatusCode.BadRequest,
                         Status = HttpStatusCode.BadRequest.ToString(),
                         Message = Common.Constants.Messages.REQUEST_BODY_IS_NULL,
                         Error = Common.Constants.Errors.ERR_NULL_BODY,
-                        Data = null,
+                        Data = new EmptyData(),
                         Success = false,
                         CorrelationId = correlationId
                     };
@@ -50,6 +50,15 @@ namespace UserSyncAPI_Tomcat.Authentication
             }
             if (!actionContext.ModelState.IsValid)
             {
+                var errors = actionContext.ModelState
+                                .Where(ms => ms.Value != null && ms.Value.Errors.Any())
+                                .ToDictionary(
+                                                ms => ms.Key,
+                                                ms => ms.Value!.Errors
+                                                               .Select(e => e.ErrorMessage)
+                                                               .ToArray()
+                                              );
+
                 var response = new ApiResponse<object>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
@@ -77,13 +86,13 @@ namespace UserSyncAPI_Tomcat.Authentication
                     if (((createUserRequest != null) && ((createUserRequest.TargetFactories == null) || (!createUserRequest.TargetFactories.Any())))
                         || ((updateUserRequest != null) && ((updateUserRequest.TargetFactories == null || !updateUserRequest.TargetFactories.Any()))))
                     {
-                        var response = new ApiResponse<object>
+                        var response = new ApiResponse<EmptyData>
                         {
                             StatusCode = (int)HttpStatusCode.BadRequest,
                             Status = HttpStatusCode.BadRequest.ToString(),
                             Message = Common.Constants.Messages.AT_LEAST_ONE_TARGET_DATABASE_MUST_BE_SPECIFIED,
                             Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
-                            Data = null,
+                            Data = new EmptyData(),
                             Success = false,
                             CorrelationId = correlationId
                         };
@@ -100,13 +109,16 @@ namespace UserSyncAPI_Tomcat.Authentication
                     var sourceSystemKey = _config.GetConnectionString(sourceSystem);
                     if (sourceSystemKey == null)
                     {
-                        var response = new ApiResponse<object>
+                        var response = new ApiResponse<ValidationResponseData>
                         {
                             StatusCode = (int)HttpStatusCode.BadRequest,
                             Status = HttpStatusCode.BadRequest.ToString(),
                             Message = Common.Constants.Messages.INVALID_SOURCE_SYSTEM,
                             Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
-                            Data = new { ValidationMessage = string.Format(Common.Constants.Messages.THE_SOURCE_SYSTEM_XXXX_DOES_NOT_EXIST_IN_THE_SYSTEM_LIST, sourceSystem) },
+                            Data = new ValidationResponseData
+                            {
+                                ValidationMessage = string.Format(Common.Constants.Messages.THE_SOURCE_SYSTEM_XXXX_DOES_NOT_EXIST_IN_THE_SYSTEM_LIST, sourceSystem)
+                            },
                             Success = false,
                             CorrelationId = correlationId,
                         };
@@ -119,6 +131,8 @@ namespace UserSyncAPI_Tomcat.Authentication
                     }
                     if (createUserRequest != null || updateUserRequest != null)
                     {
+
+
                         List<string>? targetDatabases = createUserRequest?.TargetFactories
                                                 ?? updateUserRequest?.TargetFactories;
                         string[] validKeys = _config
@@ -158,13 +172,16 @@ namespace UserSyncAPI_Tomcat.Authentication
                                   ?? deleteUserRequest?.UserId;
                         if (userId <= 0)
                         {
-                            var response = new ApiResponse<object>
+                            var response = new ApiResponse<ValidationResponseData>
                             {
                                 StatusCode = (int)HttpStatusCode.BadRequest,
                                 Status = HttpStatusCode.BadRequest.ToString(),
                                 Message = Common.Constants.Messages.INVALID_USER_ID,
                                 Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
-                                Data = new { ValidationMessage = string.Format(Common.Constants.Messages.THE_USER_ID_XX_IS_INVALID, updateUserRequest.UserId) },
+                                Data=  new ValidationResponseData
+                                {
+                                    ValidationMessage = string.Format(Common.Constants.Messages.THE_USER_ID_XX_IS_INVALID, updateUserRequest.UserId)
+                                },
                                 Success = false,
                                 CorrelationId = correlationId,
                             };
@@ -203,6 +220,7 @@ namespace UserSyncAPI_Tomcat.Authentication
                     }
                     if (createUserRequest != null || updateUserRequest != null)
                     {
+
                         if (createUserRequest != null)
                         {
                             var dbMaxIds = GetUsersMaxIds();
@@ -234,6 +252,12 @@ namespace UserSyncAPI_Tomcat.Authentication
                         }
                         string? userName = createUserRequest?.UserName
                                        ?? updateUserRequest?.UserName;
+                        string? domain = _config["LdapSettings:Server"];
+                        if (!IsUserPresentInDomain(userName, domain))
+                        {
+
+                        }
+
                         int existingUserNameCount = CheckUserNameExists(userName);
                         if (createUserRequest != null && existingUserNameCount > 0)
                         {
@@ -308,11 +332,11 @@ namespace UserSyncAPI_Tomcat.Authentication
                         }
                     }
                 }
-                if (string.Equals(actionName, Common.Constants.ActionNames.Login, StringComparison.OrdinalIgnoreCase))
+                if ((string.Equals(actionName, Common.Constants.ActionNames.Login, StringComparison.OrdinalIgnoreCase)) || (string.Equals(actionName, Common.Constants.ActionNames.DomainLogin, StringComparison.OrdinalIgnoreCase)))
                 {
                     var loginRequest = model as LoginRequest;
 
-                    var sourceSystemKey = _config.GetConnectionString(loginRequest.SourceSystem); 
+                    var sourceSystemKey = _config.GetConnectionString(loginRequest.SourceSystem);
                     if (sourceSystemKey == null)
                     {
                         var response = new ApiResponse<object>
@@ -338,7 +362,25 @@ namespace UserSyncAPI_Tomcat.Authentication
             }
         }
 
+        private bool IsUserPresentInDomain(string? userName, string? domain)
+        {
+            try
+            {
+                if (userName == null)
+                {
+                    return false;
+                }
+                using var context = new PrincipalContext(ContextType.Domain, domain);   // your domain
 
+                var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
+
+                return user != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         private Dictionary<string, int?> GetUsersMaxIds()
         {

@@ -142,14 +142,14 @@ namespace UserSyncAPI_Tomcat.Authentication
             Response.StatusCode = (int)HttpStatusCode.Unauthorized;
             Response.ContentType = "application/json";
 
-            ApiResponse<object> responseObj = new ApiResponse<object>
+            ApiResponse<EmptyData> responseObj = new ApiResponse<EmptyData>
             {
                 Success = false,
                 StatusCode = (int)HttpStatusCode.Unauthorized,
                 Status = HttpStatusCode.Unauthorized.ToString(),
                 Message = _failureReason, // exact reason
                 Error = UserSyncAPI_Tomcat.Common.Constants.Errors.ERR_UNAUTHORIZED,
-                Data = (object?)null,
+                Data = new EmptyData(),
                 CorrelationId = Guid.NewGuid().ToString()
             };
 

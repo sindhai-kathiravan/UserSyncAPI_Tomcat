@@ -1,7 +1,18 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using System.ComponentModel.DataAnnotations;
 
 namespace UserSyncAPI_Tomcat.Models
 {
+    public class UserList
+    {
+        public List<User>? Users { get; set; }
+        public int UsersCount { get; set; }
+    }
+
+    public class NewUser {
+        public string Database { get; set; }
+        public int NewUserId { get; set; }
+    }
     public class User
     {
         [Required, StringLength(100)]
