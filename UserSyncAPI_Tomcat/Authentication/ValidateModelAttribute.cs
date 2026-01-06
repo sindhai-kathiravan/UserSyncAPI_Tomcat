@@ -178,7 +178,7 @@ namespace UserSyncAPI_Tomcat.Authentication
                                 Status = HttpStatusCode.BadRequest.ToString(),
                                 Message = Common.Constants.Messages.INVALID_USER_ID,
                                 Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
-                                Data=  new ValidationResponseData
+                                Data = new ValidationResponseData
                                 {
                                     ValidationMessage = string.Format(Common.Constants.Messages.THE_USER_ID_XX_IS_INVALID, updateUserRequest.UserId)
                                 },
@@ -220,8 +220,8 @@ namespace UserSyncAPI_Tomcat.Authentication
                     }
                     if (createUserRequest != null || updateUserRequest != null)
                     {
-
-                        if (createUserRequest != null)
+                        bool? AllDatabaseSameUserId = Convert.ToBoolean(_config["Validations:AllDatabaseSameUserId"]);
+                        if ((bool)AllDatabaseSameUserId && createUserRequest != null)
                         {
                             var dbMaxIds = GetUsersMaxIds();
                             var distinctValues = new HashSet<int?>(dbMaxIds.Values);
@@ -255,7 +255,22 @@ namespace UserSyncAPI_Tomcat.Authentication
                         string? domain = _config["LdapSettings:Server"];
                         if (!IsUserPresentInDomain(userName, domain))
                         {
-
+                            var response = new ApiResponse<object>
+                            {
+                                StatusCode = (int)HttpStatusCode.BadRequest,
+                                Status = HttpStatusCode.BadRequest.ToString(),
+                                Message = Common.Constants.Messages.INVALID_USER_ID,
+                                Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
+                                Data = new { ValidationMessage = $"The user ID '{userName}'is not registered in the organization's domain." },
+                                Success = false,
+                                CorrelationId = correlationId,
+                            };
+                            actionContext.Result = new JsonResult(response)
+                            {
+                                StatusCode = StatusCodes.Status400BadRequest
+                            };
+                            PrintResponse(response);
+                            return;
                         }
 
                         int existingUserNameCount = CheckUserNameExists(userName);
@@ -371,9 +386,7 @@ namespace UserSyncAPI_Tomcat.Authentication
                     return false;
                 }
                 using var context = new PrincipalContext(ContextType.Domain, domain);   // your domain
-
                 var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
-
                 return user != null;
             }
             catch
