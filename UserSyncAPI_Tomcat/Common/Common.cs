@@ -19,13 +19,13 @@
             public const string USER_CREATED_SUCCESSFULLY = "User created successfully.";
             public const string AN_UNEXPECTED_ERROR_OCCURRED = "An unexpected error occurred.";
             public const string AT_LEAST_ONE_TARGET_DATABASE_MUST_BE_SPECIFIED = "At least one target database must be specified.";
-            public const string INVALID_DATABASE_KEY_FOUND = "Invalid database key found.";
+            public const string INVALID_DATABASE_KEY_FOUND = "Invalid database key found in TargetFactories.";
             public const string USER_UPDATED_SUCCESSFULLY = "User updated successfully.";
             public const string USER_ID_DOES_NOT_EXIST = "UserId does not exist.";
             public const string INVALID_SOURCE_SYSTEM = "Invalid Source System.";
             public const string THE_SOURCE_SYSTEM_XXXX_DOES_NOT_EXIST_IN_THE_SYSTEM_LIST = "The source system '{0}' does not exist in the system list.";
             public const string THE_USER_ID_XX_IS_INVALID = "The user id '{0}' is invalid.";
-            public const string USERID_QUERY_PARAMETER_IS_REQUIRED = "UserId query parameter is required.";
+            public const string USERID_QUERY_PARAMETER_IS_REQUIRED = "UserId query parameter 'id' is required.";
             public const string USER_DELETED_SUCCESSFULLY = "User deleted successfully.";
             public const string USER_DATABASE_AUTHENTICATION_SUCCESSFUL = "User Database Authentication successful.";
             public const string USER_DOMAIN_AUTHENTICATION_SUCCESSFUL = "User Domain Authentication successful.";
@@ -59,6 +59,7 @@
         public static class QueryStrings
         {
             public const string UserId = "Id";
+            public const string SourceSystem = "SourceSystem";
         }
         public static class ConfigKeys
         {

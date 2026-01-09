@@ -38,5 +38,21 @@ namespace UserSyncAPI_Tomcat.Helpers
                 throw new Exception("ConnectionStrings list in app setting is empty");
             }
         }
+
+        public static string? GetDefaultConnectionKey()
+        {
+            // Return the first connection string in the section
+            var section = _configuration?.GetSection("ConnectionStrings").GetChildren();
+            var first = section?.FirstOrDefault();
+            if (first != null)
+            {
+                return first?.Key;
+
+            }
+            else
+            {
+                return null;
+            }
+        }
     }
 }

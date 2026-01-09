@@ -3,18 +3,25 @@
     public class CorrelationIdHelper
     {
 
+
+
         public static string GetOrCreateCorrelationId(HttpRequest request)
         {
             const string headerName = Common.Constants.Headers.CORRELATION_ID;
 
-            if (request.Headers.TryGetValue(headerName, out var values))
+            // Header exists and has a value
+            if (request.Headers.TryGetValue(headerName, out var values) && !string.IsNullOrWhiteSpace(values.FirstOrDefault()))
             {
-                // Take the first value or generate a new GUID if empty
-                return values.FirstOrDefault() ?? Guid.NewGuid().ToString();
+                return values.First();
             }
 
-            return Guid.NewGuid().ToString();
-        }
+            // Create new correlation id
+            var correlationId = Guid.NewGuid().ToString();
 
+            // Add to request headers (context)
+            request.Headers[headerName] = correlationId;
+
+            return correlationId;
+        }
     }
 }

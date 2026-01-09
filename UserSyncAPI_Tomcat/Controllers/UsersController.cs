@@ -18,13 +18,24 @@ namespace UserSyncAPI_Tomcat.Controllers
     public class UsersController : ControllerBase
     {
         [HttpGet("getall")]
-        public IActionResult GetAll()
+        public IActionResult GetAll([FromQuery] string? sourceSystem)
         {
             ApiResponse<UserList> apiResponse;
+            string correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request);
+
             try
             {
                 List<User> users = new List<User>();
-                using (SqlConnection conn = DbConnectionFactory.GetDefaultConnection())
+                if (string.IsNullOrWhiteSpace(sourceSystem))
+                {
+                    Logger.Log($"{correlationId} | Using default database connection");
+                    sourceSystem = DbConnectionFactory.GetDefaultConnectionKey();
+                }
+                else
+                {
+                    Logger.Log($"{correlationId} | Using database connection for SourceSystem: {sourceSystem}");
+                }
+                using (SqlConnection conn = DbConnectionFactory.GetSqlConnection(sourceSystem))
                 {
                     conn.Open();
                     string query = @"SELECT (SELECT STUFF((SELECT ',' + rtrim(FactoryCode)FROM UserFactoryMapping AS UFM WHERE UFM.UserId = U.user_id FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '')) as FactoryList,
@@ -135,7 +146,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                     Message = message,
                     Data = new UserList { UsersCount = users.Count, Users = users },
                     Error = null,
-                    CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                    CorrelationId = correlationId
                 };
                 return StatusCode(StatusCodes.Status200OK, apiResponse);
             }
@@ -151,23 +162,34 @@ namespace UserSyncAPI_Tomcat.Controllers
                     Message = Common.Constants.Messages.AN_UNEXPECTED_ERROR_OCCURRED,
                     Data = new UserList { UsersCount = 0, Users = null },
                     Error = Common.Constants.Errors.ERR_INTERNAL_SERVER,
-                    CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                    CorrelationId = correlationId
                 };
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
 
         [HttpGet("get")]
-        public IActionResult Get(int id)
+        public IActionResult Get([FromQuery] int id, [FromQuery] string? sourceSystem)
         {
             User? userObj = null;
             ApiResponse<User>? apiResponse = null;
             string? message = null;
             string? error = null;
             bool success = false;
+            string correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request);
+
             try
             {
-                using (SqlConnection conn = DbConnectionFactory.GetDefaultConnection())
+                if (string.IsNullOrWhiteSpace(sourceSystem))
+                {
+                    Logger.Log($"{correlationId} | Using default database connection");
+                    sourceSystem = DbConnectionFactory.GetDefaultConnectionKey();
+                }
+                else
+                {
+                    Logger.Log($"{correlationId} | Using database connection for SourceSystem: {sourceSystem}");
+                }
+                using (SqlConnection conn = DbConnectionFactory.GetSqlConnection(sourceSystem))
                 {
                     conn.Open();
                     string query = @"SELECT (SELECT STUFF((SELECT ',' + rtrim(FactoryCode)FROM UserFactoryMapping AS UFM WHERE UFM.UserId = U.user_id FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '')) as FactoryList,
@@ -273,7 +295,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                             else
                             {
                                 success = false;
-                                message = $"User with Id {id} was not found.";
+                                message = $"User with Id {id} was not found in the system '{sourceSystem}'.";
                                 error = Common.Constants.Errors.ERR_NOT_FOUND;
                             }
                         }
@@ -287,14 +309,14 @@ namespace UserSyncAPI_Tomcat.Controllers
                     Message = message,
                     Data = userObj,
                     Error = error,
-                    CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                    CorrelationId = correlationId
                 };
                 return StatusCode(StatusCodes.Status200OK, apiResponse);
             }
             catch (Exception ex)
             {
-                Logger.Log($"Error in GetUser: {ex.Message}");
-                Logger.Log($"StackTrace in GetUser: {ex.StackTrace?.ToString()}");
+                Logger.Log($"{correlationId} | Error in GetUser: {ex.Message}");
+                Logger.Log($"{correlationId} | StackTrace in GetUser: {ex.StackTrace?.ToString()}");
                 apiResponse = new ApiResponse<User>
                 {
                     Success = false,
@@ -303,7 +325,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                     Message = Common.Constants.Messages.AN_UNEXPECTED_ERROR_OCCURRED,
                     Data = null,
                     Error = Common.Constants.Errors.ERR_INTERNAL_SERVER,
-                    CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
+                    CorrelationId = correlationId
                 };
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
@@ -519,6 +541,9 @@ namespace UserSyncAPI_Tomcat.Controllers
                             if (request.UserName != null)
                                 Add("user_name", "UserName", SqlDbType.VarChar, request.UserName);
 
+                            if (request.UserPassword != null)
+                                Add("user_password", "UserPassword", SqlDbType.VarChar, request.UserPassword);
+
                             if (request.UserLoginName != null)
                                 Add("user_loginname", "UserLoginName", SqlDbType.VarChar, request.UserLoginName);
 
@@ -673,7 +698,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                             if (request.ReleaseDt.HasValue)
                                 Add("releasedt", "ReleaseDt", SqlDbType.DateTime, request.ReleaseDt.Value);
 
-                            if (request.ReleaseBy!=null)
+                            if (request.ReleaseBy != null)
                                 Add("releaseby", "ReleaseBy", SqlDbType.Int, request.ReleaseBy);
 
                             if (request.Inactive.HasValue)
@@ -685,10 +710,10 @@ namespace UserSyncAPI_Tomcat.Controllers
                             if (request.InactiveReleaseDt.HasValue)
                                 Add("inactivereleasedt", "InactiveReleaseDt", SqlDbType.DateTime, request.InactiveReleaseDt.Value);
 
-                            if (request.InactiveReleaseBy!= null)
+                            if (request.InactiveReleaseBy != null)
                                 Add("inactivereleaseby", "InactiveReleaseBy", SqlDbType.Int, request.InactiveReleaseBy);
 
-                            if (request.PasswordAttempts!= null)
+                            if (request.PasswordAttempts != null)
                                 Add("password_attempts", "PasswordAttempts", SqlDbType.Int, request.PasswordAttempts);
 
                             // -------- AUDIT (ALWAYS UPDATED) --------
@@ -855,6 +880,6 @@ namespace UserSyncAPI_Tomcat.Controllers
             }
         }
 
-       
+
     }
 }

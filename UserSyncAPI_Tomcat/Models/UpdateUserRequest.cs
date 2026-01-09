@@ -19,6 +19,8 @@ namespace UserSyncAPI_Tomcat.Models
 
         [StringLength(20)]
         public string? UserName { get; set; } // char(20)
+        [Required, StringLength(50)]
+        public string? UserPassword { get; set; } // nvarchar(50)
 
         [StringLength(100)]
         public string? UserLoginName { get; set; } // nvarchar(100)

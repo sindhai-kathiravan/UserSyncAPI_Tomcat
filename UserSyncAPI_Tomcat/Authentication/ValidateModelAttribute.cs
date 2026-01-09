@@ -1,10 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Data.SqlClient;
-using System.DirectoryServices.AccountManagement;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.DirectoryServices.AccountManagement;
 using System.Net;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
 using UserSyncAPI_Tomcat.Common;
 using UserSyncAPI_Tomcat.Helpers;
 using UserSyncAPI_Tomcat.Models;
@@ -22,7 +27,44 @@ namespace UserSyncAPI_Tomcat.Authentication
         {
             var httpContext = actionContext.HttpContext;
 
-            string correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(httpContext.Request);
+            HttpRequest request = httpContext.Request;
+            string correlationId = Guid.NewGuid().ToString();
+
+            // Add to request headers (context)
+            request.Headers[Common.Constants.Headers.CORRELATION_ID] = correlationId;
+
+
+            ///////////
+            var controller = actionContext.RouteData.Values["controller"];
+            var action = actionContext.RouteData.Values["action"];
+
+            var ipAddress =
+                httpContext.Connection.RemoteIpAddress?.ToString();
+
+            var userAgent =
+                request.Headers["User-Agent"].ToString();
+
+            var queryParams = request.Query
+                .ToDictionary(q => q.Key, q => q.Value.ToString());
+
+            var queryJson = JsonConvert.SerializeObject(
+                queryParams,
+                Formatting.Indented
+            );
+
+            var headers = request.Headers
+                .ToDictionary(h => h.Key, h => h.Value.ToString());
+
+            var headersJson = JsonConvert.SerializeObject(
+                headers,
+                Formatting.Indented
+            );
+            string? reqBody = MaskSensitive(actionContext.ActionArguments);
+            Logger.Log(
+                $"API Request | CorrelationId:{correlationId} | Method: {request.Method} | Controller: {controller} | Action: {action} |IP: {ipAddress} | UserAgent: {userAgent} | Query: {queryJson} | Headers: {headersJson} | Body: {reqBody}"
+            );
+
+            // string correlationId = CorrelationIdHelper.GetOrCreateCorrelationId(httpContext.Request);
             string method = httpContext.Request.Method;
             var model = actionContext.ActionArguments.Values.FirstOrDefault();
             var actionName = actionContext.ActionDescriptor.RouteValues["action"];
@@ -154,7 +196,7 @@ namespace UserSyncAPI_Tomcat.Authentication
                                 Status = HttpStatusCode.BadRequest.ToString(),
                                 Message = Common.Constants.Messages.INVALID_DATABASE_KEY_FOUND,
                                 Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
-                                Data = JToken.Parse(json),
+                                Data = errorObj,
                                 Success = false,
                                 CorrelationId = correlationId,
                             };
@@ -253,6 +295,7 @@ namespace UserSyncAPI_Tomcat.Authentication
                         string? userName = createUserRequest?.UserName
                                        ?? updateUserRequest?.UserName;
                         string? domain = _config["LdapSettings:Server"];
+
                         if (!IsUserPresentInDomain(userName, domain))
                         {
                             var response = new ApiResponse<object>
@@ -321,11 +364,8 @@ namespace UserSyncAPI_Tomcat.Authentication
                     {
                         if (!string.Equals(actionName, Common.Constants.ActionNames.GetAllUser, StringComparison.OrdinalIgnoreCase))
                         {
-                            var queryParams = actionContext.HttpContext.Request.Query;
-
                             var userIdKey = queryParams.Keys.FirstOrDefault(k => k.Equals(Common.Constants.QueryStrings.UserId, StringComparison.OrdinalIgnoreCase));
-
-                            if (userIdKey == null || !queryParams.TryGetValue(userIdKey, out var userId) || string.IsNullOrWhiteSpace(userId))
+                            if (userIdKey == null || !queryParams.TryGetValue(userIdKey, out var userIdValue) || string.IsNullOrWhiteSpace(userIdValue))
                             {
                                 var response = new ApiResponse<object>
                                 {
@@ -343,6 +383,38 @@ namespace UserSyncAPI_Tomcat.Authentication
                                 };
                                 PrintResponse(response);
                                 return;
+                            }
+                        }
+                        var sourceSystemdKey = queryParams.Keys.FirstOrDefault(k => k.Equals(Common.Constants.QueryStrings.SourceSystem, StringComparison.OrdinalIgnoreCase));
+                        string? sourceSystemValue = null;
+                        if (sourceSystemdKey != null)
+                        {
+                            queryParams.TryGetValue(sourceSystemdKey, out sourceSystemValue);
+                            if (!string.IsNullOrWhiteSpace(sourceSystemValue))
+                            {
+                                var sourceSystemKey = _config.GetConnectionString(sourceSystemValue);
+                                if (sourceSystemKey == null)
+                                {
+                                    var response = new ApiResponse<ValidationResponseData>
+                                    {
+                                        StatusCode = (int)HttpStatusCode.BadRequest,
+                                        Status = HttpStatusCode.BadRequest.ToString(),
+                                        Message = Common.Constants.Messages.INVALID_SOURCE_SYSTEM,
+                                        Error = Common.Constants.Errors.ERR_VALIDATION_FAILUED,
+                                        Data = new ValidationResponseData
+                                        {
+                                            ValidationMessage = string.Format(Common.Constants.Messages.THE_SOURCE_SYSTEM_XXXX_DOES_NOT_EXIST_IN_THE_SYSTEM_LIST, sourceSystemValue)
+                                        },
+                                        Success = false,
+                                        CorrelationId = correlationId,
+                                    };
+                                    actionContext.Result = new JsonResult(response)
+                                    {
+                                        StatusCode = StatusCodes.Status400BadRequest
+                                    };
+                                    PrintResponse(response);
+                                    return;
+                                }
                             }
                         }
                     }
@@ -377,6 +449,19 @@ namespace UserSyncAPI_Tomcat.Authentication
             }
         }
 
+        private string? SanitizePassword(string body)
+        {
+            if (string.IsNullOrEmpty(body))
+                return body;
+
+            return Regex.Replace(
+                body,
+                "\"password\"\\s*:\\s*\"(.*?)\"",
+                "\"password\":\"******\"",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        }
+
         private bool IsUserPresentInDomain(string? userName, string? domain)
         {
             try
@@ -385,9 +470,17 @@ namespace UserSyncAPI_Tomcat.Authentication
                 {
                     return false;
                 }
-                using var context = new PrincipalContext(ContextType.Domain, domain);   // your domain
-                var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
-                return user != null;
+                if (!long.TryParse(userName, out _))
+                {
+
+                    using var context = new PrincipalContext(ContextType.Domain, domain);   // your domain
+                    var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
+                    return user != null;
+                }
+                else
+                {
+                    return true;
+                }
             }
             catch
             {
@@ -496,6 +589,107 @@ namespace UserSyncAPI_Tomcat.Authentication
             string prettyJson = JsonConvert.SerializeObject(response, Formatting.Indented);
             Logger.Log("Validation failed.");
             Logger.Log($"Response: {prettyJson}");
+        }
+        private string ReadRequestBody(HttpRequest request)
+        {
+            if (request.ContentLength == null || request.ContentLength == 0)
+                return string.Empty;
+
+            using var reader = new StreamReader(
+                request.Body,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                leaveOpen: true);
+
+            return reader.ReadToEnd();
+        }
+        private static string? MaskSensitive(object body)
+        {
+            if (body == null) return null;
+
+            var json = JsonConvert.SerializeObject(body);
+
+            var jToken = JToken.Parse(json);
+
+            MaskToken(jToken);
+
+            return jToken.ToString(Formatting.Indented);
+        }
+
+        private static void MaskToken(JToken token)
+        {
+            if (token.Type == JTokenType.Object)
+            {
+                foreach (var property in token.Children<JProperty>())
+                {
+                    if (IsSensitiveKey(property.Name))
+                    {
+                        property.Value = "***";
+                    }
+                    else
+                    {
+                        MaskToken(property.Value);
+                    }
+                }
+            }
+            else if (token.Type == JTokenType.Array)
+            {
+                foreach (var child in token.Children())
+                {
+                    MaskToken(child);
+                }
+            }
+        }
+
+        private static bool IsSensitiveKey(string key)
+        {
+            return key.Equals("password", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("pwd", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("token", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("authorization", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("secret", StringComparison.OrdinalIgnoreCase);
+        }
+        //public override void OnActionExecuted(ActionExecutedContext context)
+        //{
+        //    Logger.Log(string.Format("API Response | StatusCode: {StatusCode} | Controller: {Controller} | Action: {Action}",
+        //        context.HttpContext.Response.StatusCode,
+        //        context.RouteData.Values["controller"],
+        //        context.RouteData.Values["action"]
+        //    ));
+        //}
+
+        public override void OnActionExecuted(ActionExecutedContext context)
+        {
+            var controller = context.RouteData.Values["controller"];
+            var action = context.RouteData.Values["action"];
+            var statusCode = context.HttpContext.Response.StatusCode;
+
+            object? responseBody = null;
+
+            switch (context.Result)
+            {
+                case ObjectResult objectResult:
+                    responseBody = objectResult.Value;
+                    break;
+
+                case JsonResult jsonResult:
+                    responseBody = jsonResult.Value;
+                    break;
+
+                case ContentResult contentResult:
+                    responseBody = contentResult.Content;
+                    break;
+
+                case EmptyResult:
+                    responseBody = null;
+                    break;
+            }
+
+            var maskedResponse = MaskSensitive(responseBody);
+
+            Logger.Log(
+                $"API Response | StatusCode: {statusCode} | Controller: {controller} | Action: {action} | Response: {maskedResponse}"
+            );
         }
 
     }
