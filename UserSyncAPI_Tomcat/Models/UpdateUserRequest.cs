@@ -31,7 +31,7 @@ namespace UserSyncAPI_Tomcat.Models
         [StringLength(30)]
         public string? UserFullName { get; set; } // char(30)
 
-        [StringLength(50), EmailAddress]
+        [StringLength(50)]
         public string? UserEmail { get; set; } // char(50)
 
         [StringLength(4)]

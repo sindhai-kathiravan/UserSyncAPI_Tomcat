@@ -360,7 +360,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                         StatusCode = (int)HttpStatusCode.OK,
                         Status = HttpStatusCode.OK.ToString(),
                         Message = Common.Constants.Messages.USER_DOMAIN_AUTHENTICATION_SUCCESSFUL,
-                        Data = user ,
+                        Data = user,
                         Error = error,
                         CorrelationId = correlationId
                     };
@@ -390,123 +390,6 @@ namespace UserSyncAPI_Tomcat.Controllers
                 // AD is DOWN → Direct DB login
                 return Login(request);
             }
-            //try
-            //{
-            //    var ldapServer = _ldapSettings.Server;
-            //    var credential = new NetworkCredential(request.Username, request.Password);
-            //    using var connection = new LdapConnection(ldapServer);
-            //    connection.Credential = credential;
-            //    connection.Bind();
-
-
-            //    //var config = new ConfigurationBuilder()
-            //    //                 .SetBasePath(AppContext.BaseDirectory)
-            //    //                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            //    //                 .Build();
-
-            //    //string? cnxnStr = config?.GetConnectionString(request.SourceSystem);
-
-            //    //using (SqlConnection connection = new SqlConnection(cnxnStr))
-            //    //{
-            //    //    connection.Open();
-            //    //    var sql = @"
-            //    //               IF EXISTS (SELECT 1 FROM Users U    
-            //    //                            INNER JOIN UserFactoryMapping UF ON U.user_id = UF.UserId
-            //    //                            WHERE deleted = 0 AND U.user_name = @UserName AND U.user_password = @Password AND UF.FactoryCode = @FactoryCode)
-            //    //                    BEGIN
-            //    //                        UPDATE Users 
-            //    //                        SET user_loggedin = 1, lastlogin = GETDATE() 
-            //    //                        WHERE user_name = @UserName;
-            //    //                        SELECT 1;
-            //    //                    END
-            //    //                    ELSE
-            //    //                    BEGIN
-            //    //                        UPDATE Users 
-            //    //                        SET fattempt = fattempt + 1 
-            //    //                        WHERE user_name = @UserName;
-            //    //                        SELECT 0;
-            //    //                    END";
-            //    //    using (var command = new SqlCommand(sql, connection))
-            //    //    {
-            //    //        command.Parameters.AddWithValue("@UserName", request.Username);
-            //    //        command.Parameters.AddWithValue("@Password", SecurityExtensions.Encrypt(request.Password));
-            //    //        command.Parameters.AddWithValue("@FactoryCode", request.SourceSystem);
-
-            //    //        int result = (int)command.ExecuteScalar();
-            //    //        if (result == 1)
-            //    //        {
-            //    //            success = true;
-            //    //            message = Common.Constants.Messages.USER_AUTHENTICATION_SUCCESSFUL;
-            //    //        }
-            //    //        else
-            //    //        {
-            //    //            success = false;
-            //    //            message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SYSTEM;
-            //    //            error = Common.Constants.Errors.ERR_LOGIN_FAILED;
-            //    //        }
-            //    //    }
-            //    //}
-            //    apiResponse = new ApiResponse<object>
-            //    {
-            //        Success = success,
-            //        StatusCode = (int)HttpStatusCode.OK,
-            //        Status = HttpStatusCode.OK.ToString(),
-            //        Message = message,
-            //        Data = null,
-            //        Error = error,
-            //        CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
-            //    };
-            //    return StatusCode(StatusCodes.Status200OK, apiResponse);
-            //}
-            //catch (LdapException ex)
-            //{
-            //    Logger.Log($"Error in DomainLogin: {ex.Message}");
-            //    Logger.Log($"StackTrace in DomainLogin: {ex.StackTrace}");
-            //    var status = HttpStatusCode.InternalServerError.ToString();
-            //    var statusCode = (int)HttpStatusCode.OK;
-            //    success = false;
-            //    if (ex.Message == "The supplied credential is invalid.")
-            //    {
-            //        message = Common.Constants.Messages.INVALID_USERNAME_OR_PASSWORD_FOR_THIS_SYSTEM;
-            //        error = Common.Constants.Errors.ERR_LOGIN_FAILED;
-            //        status = HttpStatusCode.OK.ToString();
-            //        statusCode = (int)HttpStatusCode.OK;
-            //    }
-            //    else
-            //    {
-            //        message = Common.Constants.Messages.AN_UNEXPECTED_ERROR_OCCURRED;
-            //        error = Common.Constants.Errors.ERR_INTERNAL_SERVER;
-            //        status = HttpStatusCode.InternalServerError.ToString();
-            //        statusCode = (int)HttpStatusCode.InternalServerError;
-            //    }
-            //    apiResponse = new ApiResponse<object>
-            //    {
-            //        Success = success,
-            //        StatusCode = statusCode,
-            //        Status = status,
-            //        Message = message,
-            //        Data = null,
-            //        Error = error,
-            //        CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
-            //    };
-            //    return StatusCode(statusCode, apiResponse);
-            //}
-            //catch (Exception ex)
-            //{
-            //    Logger.Log($"Error in Login: {ex.Message}");
-            //    Logger.Log($"StackTrace in Login: {ex.StackTrace}");
-            //    apiResponse = new ApiResponse<object>
-            //    {
-            //        Success = false,
-            //        StatusCode = (int)HttpStatusCode.InternalServerError,
-            //        Status = HttpStatusCode.InternalServerError.ToString(),
-            //        Message = Common.Constants.Messages.AN_UNEXPECTED_ERROR_OCCURRED,
-            //        Data = null,
-            //        Error = Common.Constants.Errors.ERR_INTERNAL_SERVER,
-            //        CorrelationId = CorrelationIdHelper.GetOrCreateCorrelationId(Request)
-            //    };
-            //    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            //}
         }
 
         private User? UpdatePasswordGetUser(string username, string password, string sourceSystem)
@@ -574,7 +457,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                                 UserFullName = reader["user_fullname"] != DBNull.Value ? reader["user_fullname"].ToString() : null,
                                 UserEmail = reader["user_email"] != DBNull.Value ? reader["user_email"].ToString() : null,
                                 UserInitials = reader["user_initials"] != DBNull.Value ? reader["user_initials"].ToString() : null,
-                                //UserPassword = reader["user_password"] != DBNull.Value ? reader["user_password"].ToString() : null,
+                                UserPassword = reader["user_password"] != DBNull.Value ? reader["user_password"].ToString() : null,
                                 UserDepartment = reader["user_department"] != DBNull.Value ? Convert.ToInt32(reader["user_department"]) : 0,
                                 UserLoggedIn = reader["user_loggedin"] == DBNull.Value ? false : Convert.ToBoolean(reader["user_loggedin"]),
                                 UserInModule = reader["user_inmodule"] != DBNull.Value ? Convert.ToInt32(reader["user_inmodule"]) : 0,
@@ -671,35 +554,6 @@ namespace UserSyncAPI_Tomcat.Controllers
                 return false; // AD unavailable (network/DNS/server down)
             }
         }
-
-        //private bool TryADAuthentication(LoginRequest request)
-        //{
-        //    Logger.Log($"TryADAuthenticatione function");
-
-        //    try
-        //    {
-        //        string ldapServer = _ldapSettings.Server;
-
-        //        var credential = new NetworkCredential(request.Username, request.Password);
-
-        //        using var connection = new LdapConnection(ldapServer)
-        //        {
-        //            Credential = credential,
-        //            AuthType = AuthType.Basic
-        //        };
-        //        Logger.Log($"TryADAuthentication bind successfull");
-
-        //        connection.Bind(); // Will fail if wrong password
-
-        //        return true;
-        //    }
-        //    catch
-        //    {
-        //        Logger.Log($"TryADAuthentication failed");
-
-        //        return false; // Authentication failed
-        //    }
-        //}
 
         private bool TryADAuthentication(LoginRequest request)
         {

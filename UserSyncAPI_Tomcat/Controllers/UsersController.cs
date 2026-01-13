@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 using UserSyncAPI_Tomcat.Authentication;
 using UserSyncAPI_Tomcat.Common;
 using UserSyncAPI_Tomcat.Helpers;
@@ -403,7 +405,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                                 cmd.Parameters.AddWithValue("@UserFullName", request.UserFullName);
                                 cmd.Parameters.AddWithValue("@UserEmail", request.UserEmail);
                                 cmd.Parameters.AddWithValue("@UserInitials", request.UserInitials);
-                                cmd.Parameters.AddWithValue("@UserPassword", SecurityExtensions.Encrypt(request.UserPassword));
+                                cmd.Parameters.AddWithValue("@UserPassword", request.UserPassword);
                                 cmd.Parameters.AddWithValue("@UserDepartment", request.UserDepartment);
                                 cmd.Parameters.AddWithValue("@UserLoggedIn", request.UserLoggedIn);
                                 cmd.Parameters.AddWithValue("@UserInModule", request.UserInModule);
@@ -463,6 +465,7 @@ namespace UserSyncAPI_Tomcat.Controllers
                                 cmd.Parameters.AddWithValue("@PasswordAttempts", (object)request.PasswordAttempts ?? DBNull.Value);
                                 //cmd.Parameters.AddWithValue("@PasswordUpdatedFlag", (object)request.PasswordUpdatedFlag ?? DBNull.Value);
                                 //cmd.Parameters.AddWithValue("@UnlockDate", (object)request.UnlockDate ?? DBNull.Value);
+                                //Logger.Log(ToExecutableSql(cmd));
                                 newId = Convert.ToInt32(cmd.ExecuteScalar());
                                 newUser.Add(new NewUser { Database = cs.Key, NewUserId = newId });
                                 foreach (string factoryCode in request.TargetFactories)
@@ -559,12 +562,15 @@ namespace UserSyncAPI_Tomcat.Controllers
                             if (request.UserInitials != null)
                                 Add("user_initials", "UserInitials", SqlDbType.VarChar, request.UserInitials);
 
-
                             if (request.UserDepartment != null)
                                 Add("user_department", "UserDepartment", SqlDbType.VarChar, request.UserDepartment);
 
                             if (request.UserInModule != null)
                                 Add("user_inmodule", "UserInModule", SqlDbType.VarChar, request.UserInModule);
+
+                            if (request.UserLoggedIn != null)
+                                Add("user_loggedin", "UserLoggedIn", SqlDbType.Bit, request.UserLoggedIn);
+
 
                             // -------- SYSTEM INFO --------
                             if (request.G2Version != null)
@@ -879,6 +885,58 @@ namespace UserSyncAPI_Tomcat.Controllers
                 cmd.ExecuteNonQuery();
             }
         }
+
+        private string ToExecutableSql(SqlCommand cmd)
+        {
+            string sql = cmd.CommandText;
+
+            foreach (SqlParameter p in cmd.Parameters)
+            {
+                string value;
+
+                if (p.Value == null || p.Value == DBNull.Value)
+                {
+                    value = "NULL";
+                }
+                else
+                {
+                    switch (p.SqlDbType)
+                    {
+                        case SqlDbType.NVarChar:
+                        case SqlDbType.VarChar:
+                        case SqlDbType.Char:
+                        case SqlDbType.NChar:
+                        case SqlDbType.Text:
+                        case SqlDbType.NText:
+                            value = $"'{p.Value.ToString().Replace("'", "''")}'";
+                            break;
+
+                        case SqlDbType.DateTime:
+                        case SqlDbType.DateTime2:
+                        case SqlDbType.SmallDateTime:
+                            value = $"'{((DateTime)p.Value):yyyy-MM-dd HH:mm:ss.fff}'";
+                            break;
+
+                        case SqlDbType.Bit:
+                            value = ((bool)p.Value) ? "1" : "0";
+                            break;
+
+                        default:
+                            value = p.Value.ToString();
+                            break;
+                    }
+                }
+
+                sql = Regex.Replace(
+                    sql,
+                    $@"{Regex.Escape(p.ParameterName)}\b",
+                    value,
+                    RegexOptions.IgnoreCase);
+            }
+
+            return sql;
+        }
+
 
 
     }

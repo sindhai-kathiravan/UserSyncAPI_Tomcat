@@ -29,7 +29,7 @@ namespace UserSyncAPI_Tomcat.Models
         [Required, StringLength(30)]
         public string UserFullName { get; set; } // char(30)
 
-        [Required, StringLength(50), EmailAddress]
+        [Required, StringLength(50)]
         public string UserEmail { get; set; } // char(50)
 
         [Required, StringLength(4)]
